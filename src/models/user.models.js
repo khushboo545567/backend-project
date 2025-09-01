@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
-import jsonwebtoken from "jsonwebtoken";
+import jwt from "jsonwebtoken";
+
 // BYCRIPT HELPS US TO ENCRYPT THE PASSWORD
 
 const userSchema = new mongoose.Schema(
@@ -65,5 +66,28 @@ userSchema.methods.ischeckPassword = async function (password) {
 };
 
 // JWT TOKEN GENERATE OF EVERY REQUEST FORM THE CLIENT-----------
+userSchema.methods.generateAccessToken = function () {
+  // it is too fast thats why we dont add async we use async then also there is no problem
 
+  return jwt.sign(
+    {
+      _id: this._id,
+      email: this.email,
+      username: this.username,
+    },
+    process.env.ACCESS_TOKEN_SECRET,
+    { expiresIn: process.env.ACCESS_TOKEN_EXPIRY },
+  );
+};
+
+userSchema.methods.generateRefreshToken = function () {
+  // IT REFRESHES AGAIN AND AGAIN SO IT CONTAIN FEW INFO
+  return jwt.sign(
+    {
+      _id: this._id,
+    },
+    process.env.REFRESH_TOKEN_SECRET,
+    { expiresIn: process.env.REFRESH_TOKEN_EXPIRY },
+  );
+};
 export const User = mongoose.model("User", userSchema);
