@@ -1,4 +1,7 @@
 import mongoose from "mongoose";
+import bcrypt from "bcrypt";
+import jsonwebtoken from "jsonwebtoken";
+// BYCRIPT HELPS US TO ENCRYPT THE PASSWORD
 
 const userSchema = new mongoose.Schema(
   {
