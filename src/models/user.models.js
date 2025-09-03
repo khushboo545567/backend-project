@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
-dotenv.config({ path: "./env" });
+dotenv.config({ path: "./.env" });
 
 // BYCRIPT HELPS US TO ENCRYPT THE PASSWORD
 
@@ -38,7 +38,7 @@ const userSchema = new mongoose.Schema(
     },
     watchHistory: [
       {
-        type: Schema.Types.ObjectId,
+        type: mongoose.Schema.Types.ObjectId,
         ref: "Vedio",
       },
     ],
