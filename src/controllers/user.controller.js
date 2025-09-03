@@ -17,7 +17,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
   // TAKEN THE DATA PART
   const { fullname, username, password, email } = req.body;
-  console.log(email, password, fullname, username);
+
   // VALIDATE THE DATA
   // if (fullname == "") {
   //   throw new ApiError(400,"fullname is required");
@@ -30,7 +30,7 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(400, "full name is required");
   }
 
-  const existedUser = User.findOne({
+  const existedUser = await User.findOne({
     $or: [{ username }, { email }],
   });
   if (existedUser) {
@@ -38,7 +38,18 @@ const registerUser = asyncHandler(async (req, res) => {
   }
 
   const avatarLocalPath = req.files?.avatar[0]?.path;
-  const coverImageLocalPath = req.files?.coverImage[0]?.path;
+  // IT WILL GIVE THE ERROR BECAUSE OF OPTIONAL CHAINING
+  // const coverImageLocalPath = req.files?.coverImage[0]?.path;
+  // SO TO THIS WE HAVE TO DO WITH IF ELSE
+
+  let coverImageLocalPath;
+  if (
+    req.files &&
+    Array.isArray(req.files.coverImage) &&
+    req.files.coverImage.length > 0
+  ) {
+    coverImageLocalPath = req.files.coverImage[0].path;
+  }
   if (!avatarLocalPath) {
     throw new ApiError(400, "avatar file is required");
   }
