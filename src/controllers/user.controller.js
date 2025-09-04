@@ -4,6 +4,22 @@ import { User } from "../models/user.models.js";
 import { uploadOnCloudnary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/apiResponse.js";
 
+const generateAccessAndRefreshToken = async (userId) => {
+  try {
+    const user = await User.findById(userId);
+    const accessToken = user.generateAccessToken();
+    const RefreshToken = user.generateRefreshToken();
+    user.refreshToken = RefreshToken;
+    await user.save({ validateBeforeSave: false });
+    return { accessToken, RefreshToken };
+  } catch (error) {
+    throw new ApiError(
+      500,
+      "something went wrong while generating access and refresh token",
+    );
+  }
+};
+
 const registerUser = asyncHandler(async (req, res) => {
   // get user details from frontend
   //validation - check the data is correct or not
@@ -81,4 +97,80 @@ const registerUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, createdUser, "user registered successfully"));
 });
 
-export { registerUser };
+const loginUser = asyncHandler(async (req, res) => {
+  // take data form the user
+  //username or email
+  //find the user
+  //password check
+  //access and refresh token
+  //send cookie
+
+  const { username, email, password } = req.body;
+  if (!username && !email) {
+    throw new ApiError(400, "username or password is reqired");
+  }
+  const user = await User.findOne({ $or: [{ username }, { email }] });
+  if (!user) {
+    throw new ApiError(404, "User does not exist");
+  }
+  // THIS IS PRESENT IN THE TAKEN USER ONLY THIS METHOD
+  const isPassWordValid = await user.ischeckPassword(password);
+  if (!isPassWordValid) {
+    throw new ApiError(401, "Invalid user creadintials");
+  }
+  // NOW GENERATE THE TOKENS
+  const { accessToken, RefreshToken } = await generateAccessAndRefreshToken(
+    user._id,
+  );
+
+  // NOW WE HAVE TO DECIDE WHICH DATA TO SEND TO THE USER //either you can query form the database or just modify the current object
+  const loggedInUser = await User.findById(user._id).select(
+    "-password -refreshToken",
+  ); //we are not sending the password and refreshtoken
+
+  // AFTER DESIDING THE WHICH DATA TO SEND AND THEN SEND THE COOKIE FOR THAT SET SECURITY SO THAT NO ONE CAN CHANGE THE REFRESH TOKEN FORM THE FRONTEND
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+
+  return res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", RefreshToken, options)
+    .json(
+      new ApiResponse(
+        200,
+        { user: loggedInUser, accessToken, RefreshToken },
+        "user logged in successfully",
+      ),
+    );
+});
+
+const logoutUser = asyncHandler(async (req, res) => {
+  await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      $set: {
+        refreshToken: undefined,
+      },
+    },
+    //BY ADDING NEW , IT RETURNS NEW UPDATED VALUE OTHERWISE IT WILL RETURN OLD VALUE
+    {
+      new: true,
+    },
+  );
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+  return res
+    .status(200)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json(new ApiResponse(200, {}, "User looged out"));
+});
+
+// when the access token is expires then frontend hit the route where to refresh the access token
+const refreshAccessToken = asyncHandler(async (req, res) => {});
+export { registerUser, loginUser, logoutUser };
