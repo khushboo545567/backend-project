@@ -3,6 +3,7 @@ import { ApiError } from "../utils/apiError.js";
 import { User } from "../models/user.models.js";
 import { uploadOnCloudnary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/apiResponse.js";
+import jwt from "jsonwebtoken";
 
 const generateAccessAndRefreshToken = async (userId) => {
   try {
@@ -172,5 +173,50 @@ const logoutUser = asyncHandler(async (req, res) => {
 });
 
 // when the access token is expires then frontend hit the route where to refresh the access token
-const refreshAccessToken = asyncHandler(async (req, res) => {});
-export { registerUser, loginUser, logoutUser };
+const refreshAccessToken = asyncHandler(async (req, res) => {
+  const incomingRefrershToken =
+    req.cookies.refreshToken || req.body.refreshToken;
+  if (!incomingRefrershToken) {
+    throw new ApiError(401, "Unauthorized access");
+  }
+  try {
+    const decodedToken = jwt.verify(
+      incomingRefrershToken,
+      process.env.REFRESH_TOKEN_SECRET,
+    );
+    const user = await User.findById(decodedToken?._id);
+    if (!user) {
+      throw new ApiError(401, "invalid refresh token");
+    }
+
+    // NOW MATCH INCOMMING REFRESH TOKEN IS NOW COMPARED THE ORG REFRESH TOKEN
+    if (incomingRefrershToken !== user?.refreshToken) {
+      throw new ApiError(401, "Refresh token is expired or used");
+    }
+
+    // now if the refresh token are matched then we generate the new access token and refresh token as well
+
+    const options = {
+      httpOnly: true,
+      secure: true,
+    };
+
+    const { accessToken, newRefreshToken } =
+      await generateAccessAndRefreshToken(user._id);
+
+    return res
+      .status(200)
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", newRefreshToken, options)
+      .json(
+        new ApiResponse(
+          200,
+          { accessToken, refreshToken: newRefreshToken },
+          "access token is refreshed",
+        ),
+      );
+  } catch (error) {
+    throw new ApiError(401, error?.message || "invalid refresh token");
+  }
+});
+export { registerUser, loginUser, logoutUser, refreshAccessToken };
